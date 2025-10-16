@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Интерактивная карта показателей регионов России</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-sA+z0pCfGSi3PKi+G0G8TNGMPQ9Y6pH0ci5xg9TMw3s="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <aside class="sidebar">
+        <header class="sidebar__header">
+          <h1>Панель региональной аналитики</h1>
+          <p>
+            Интерактивная визуализация ключевых социально-экономических
+            показателей. Выберите нужный индикатор, чтобы увидеть распределение
+            значений по регионам России.
+          </p>
+        </header>
+        <div class="sidebar__controls">
+          <label class="control">
+            <span>Показатель</span>
+            <select id="metric-select" aria-label="Выбор показателя"></select>
+          </label>
+          <p id="metric-description" class="metric-description"></p>
+          <div class="legend" aria-hidden="true">
+            <span class="legend__title">Шкала значений</span>
+            <div class="legend__gradient">
+              <div class="legend__color"></div>
+            </div>
+            <div class="legend__labels">
+              <span id="legend-min">0</span>
+              <span id="legend-max">0</span>
+            </div>
+          </div>
+          <section class="insights" id="metric-insights">
+            <h2>Сводка</h2>
+            <ul>
+              <li><strong>Среднее значение:</strong> <span data-role="avg">—</span></li>
+              <li><strong>Максимум:</strong> <span data-role="max">—</span></li>
+              <li><strong>Минимум:</strong> <span data-role="min">—</span></li>
+              <li>
+                <strong>Топ регион:</strong> <span data-role="leader">—</span>
+              </li>
+            </ul>
+          </section>
+        </div>
+      </aside>
+      <main class="content">
+        <div class="map-wrapper">
+          <div id="map" role="region" aria-label="Карта России"></div>
+          <section class="region-card" id="region-card">
+            <h2 id="region-name">Выберите регион</h2>
+            <p id="region-metric-value">Кликните по региону, чтобы увидеть подробности.</p>
+            <dl id="region-meta" class="region-meta"></dl>
+          </section>
+        </div>
+      </main>
+    </div>
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-o9N1j7kSMKV5ZsbwZk7Mx0Uyi3VQvM2fF1ze3Ck0+3s="
+      crossorigin=""
+    ></script>
+    <script src="app.js" type="module"></script>
+  </body>
+</html>
