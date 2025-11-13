@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AuroraPulse Insight</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-badge">AP</div>
+        <div>
+          <h1>AuroraPulse Insight</h1>
+          <p>Мониторинг социально-экономических показателей России</p>
+        </div>
+      </div>
+      <div class="control-set">
+        <div class="control">
+          <div class="control-label">Показатель</div>
+          <div class="selector" data-selector="indicator">
+            <button class="selector-display" type="button" data-role="display">Выберите показатель</button>
+            <div class="selector-panel" data-role="panel"></div>
+          </div>
+        </div>
+        <div class="control">
+          <div class="control-label">Регионы</div>
+          <div class="control-actions">
+            <button class="chip-button" type="button" data-action="regions-select-all">Выбрать все</button>
+            <button class="chip-button" type="button" data-action="regions-clear">Очистить</button>
+          </div>
+          <div class="selector" data-selector="regions">
+            <button class="selector-display" type="button" data-role="display">Все регионы</button>
+            <div class="selector-panel scrollable" data-role="panel"></div>
+          </div>
+        </div>
+        <div class="control">
+          <div class="control-label">Виды экономической деятельности</div>
+          <div class="control-actions">
+            <button class="chip-button" type="button" data-action="activity-select-all">Выбрать все</button>
+            <button class="chip-button" type="button" data-action="activity-clear">Очистить</button>
+          </div>
+          <div class="selector" data-selector="activities">
+            <button class="selector-display" type="button" data-role="display">Все виды деятельности</button>
+            <div class="selector-panel scrollable" data-role="panel"></div>
+          </div>
+        </div>
+        <div class="control">
+          <div class="control-label">Временной диапазон</div>
+          <div class="range-slider" data-range>
+            <div class="range-rail"></div>
+            <div class="range-track"></div>
+            <div class="range-handle" data-handle="min"><span></span></div>
+            <div class="range-handle" data-handle="max"><span></span></div>
+          </div>
+          <div class="range-values"><span data-role="range-min">—</span> — <span data-role="range-max">—</span></div>
+        </div>
+      </div>
+    </aside>
+    <main class="content">
+      <section class="map-section">
+        <div class="map-card">
+          <div class="section-header">
+            <div>
+              <h2>Карта регионов</h2>
+              <p id="map-subtitle">Сравнение регионов по выбранным показателям и диапазону</p>
+            </div>
+            <div class="map-badge" id="map-unit"></div>
+          </div>
+          <div class="map-wrapper">
+            <div id="map-container"></div>
+            <div class="map-legend" id="map-legend"></div>
+          </div>
+        </div>
+      </section>
+      <section class="chart-section">
+        <div class="chart-card">
+          <div class="section-header">
+            <div>
+              <h2>Тренды показателя</h2>
+              <p id="chart-subtitle">Динамика значений во времени</p>
+            </div>
+          </div>
+          <div id="chart-container"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://code.highcharts.com/maps/highmaps.js"></script>
+  <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
