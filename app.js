@@ -151,10 +151,13 @@ async function loadData() {
     const year = Number(row['Год']);
     const regionCode = Number(row['Код региона']);
     const regionName = row['Регион'];
-    const activityName = row['Вид экономической деятельности'];
-    const indicatorName = row['Показатель'];
+    const activityName = (row['Вид экономической деятельности'] || '').trim() || 'Без указания вида';
+    const indicatorName = (row['Показатель'] || '').trim();
+    if (!indicatorName) {
+      return;
+    }
     const rawValue = row['Значение'];
-    const unit = row['Единица измерения'];
+    const unit = (row['Единица измерения'] || '').trim();
 
     const normalizedRegion = normalizeName(regionName);
     const feature = datasets.mapFeaturesByNormalizedName.get(normalizedRegion) || null;
@@ -203,7 +206,7 @@ async function loadData() {
 
   const activitySet = new Map();
   indicatorRows.forEach((row) => {
-    const activityName = row['Вид экономической деятельности'];
+    const activityName = (row['Вид экономической деятельности'] || '').trim() || 'Без указания вида';
     const normalized = normalizeName(activityName);
     if (!activitySet.has(activityName)) {
       const reference = activityByNormalized.get(normalized);
@@ -237,7 +240,8 @@ function formatRegionDisplay(selected) {
     const region = datasets.regionsByCode.get(code);
     return region ? region.name : '1 регион';
   }
-  return `${selected.size} регионов`;
+  const count = selected.size;
+  return `${count} ${pluralize(count, ['регион', 'региона', 'регионов'])}`;
 }
 
 function formatActivityDisplay(selected) {
@@ -247,7 +251,8 @@ function formatActivityDisplay(selected) {
   if (selected.size === 1) {
     return Array.from(selected)[0];
   }
-  return `${selected.size} направлений`;
+  const count = selected.size;
+  return `${count} ${pluralize(count, ['направление', 'направления', 'направлений'])}`;
 }
 
 function pluralize(count, forms) {
@@ -282,9 +287,11 @@ function renderIndicatorOptions() {
     button.className = 'option-button';
     button.type = 'button';
     button.textContent = indicator.name;
-    const unitTag = document.createElement('span');
-    unitTag.textContent = indicator.unit ? indicator.unit : '';
-    button.appendChild(unitTag);
+    if (indicator.unit) {
+      const unitTag = document.createElement('span');
+      unitTag.textContent = indicator.unit;
+      button.appendChild(unitTag);
+    }
     button.addEventListener('click', () => {
       state.indicator = indicator.name;
       state.unit = indicator.unit;
@@ -417,7 +424,7 @@ function buildLegend() {
     const item = document.createElement('div');
     item.className = 'legend-item';
     item.dataset.code = String(region.code);
-    item.innerHTML = `<span class="legend-item-code">${String(region.code).padStart(2, '0')}</span><span>${region.featureName}</span>`;
+    item.innerHTML = `<span class="legend-item-code">${String(region.code).padStart(2, '0')}</span><span class="legend-item-name">${region.featureName}</span>`;
     item.addEventListener('click', () => {
       if (state.selectedRegions.has(region.code)) {
         state.selectedRegions.delete(region.code);
@@ -550,7 +557,7 @@ function renderMap() {
     state.yearMin != null && state.yearMax != null ? `${state.yearMin} – ${state.yearMax}` : 'Без диапазона';
   const activityCount = state.selectedActivities.size;
   const activityNote = activityCount
-    ? ` · ${activityCount} ${pluralize(activityCount, ['активность', 'активности', 'активностей'])}`
+    ? ` · ${activityCount} ${pluralize(activityCount, ['вид', 'вида', 'видов'])} деятельности`
     : '';
   selectors.mapSubtitle.textContent = `Период: ${periodText}${activityNote}`;
   selectors.mapUnit.textContent = unitText;

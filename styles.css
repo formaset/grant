@@ -95,6 +95,7 @@ body {
 }
 
 .control {
+  position: relative;
   background: rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-md);
   padding: 18px 18px 20px;
@@ -103,6 +104,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  overflow: visible;
 }
 
 .control-label {
@@ -138,6 +140,10 @@ body {
 
 .selector {
   position: relative;
+}
+
+.selector.open {
+  z-index: 30;
 }
 
 .selector-display {
@@ -178,7 +184,7 @@ body {
 
 .selector-panel {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 12px);
   left: 0;
   right: 0;
   background: rgba(10, 27, 105, 0.92);
@@ -191,7 +197,7 @@ body {
   max-height: 280px;
   overflow: hidden;
   backdrop-filter: blur(14px);
-  z-index: 10;
+  z-index: 60;
 }
 
 .selector.open .selector-panel {
@@ -318,20 +324,6 @@ body {
   overflow: hidden;
 }
 
-.map-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: url('Simple Map.svg') center/contain no-repeat;
-  opacity: 0.08;
-  pointer-events: none;
-}
-
-.map-card > * {
-  position: relative;
-  z-index: 1;
-}
-
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -370,7 +362,24 @@ body {
 }
 
 #map-container {
-  min-height: 540px;
+  position: relative;
+  min-height: 560px;
+}
+
+#map-container::before {
+  content: '';
+  position: absolute;
+  inset: 32px;
+  background: url('Simple Map.svg') center/contain no-repeat;
+  opacity: 0.12;
+  pointer-events: none;
+  filter: saturate(0.8);
+  z-index: 0;
+}
+
+#map-container > * {
+  position: relative;
+  z-index: 1;
 }
 
 .map-legend {
@@ -386,10 +395,10 @@ body {
 }
 
 .legend-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
   padding: 10px 12px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.65);
@@ -399,6 +408,7 @@ body {
   cursor: pointer;
   transition: transform var(--transition), box-shadow var(--transition), background var(--transition);
   position: relative;
+  text-align: left;
 }
 
 .legend-item::after {
@@ -429,10 +439,18 @@ body {
 .legend-item-code {
   font-weight: 600;
   letter-spacing: 0.06em;
+  min-width: 34px;
+  text-align: right;
+}
+
+.legend-item-name {
+  display: block;
+  padding-left: 0;
+  color: inherit;
 }
 
 #chart-container {
-  height: 380px;
+  height: 460px;
 }
 
 @media (max-width: 1280px) {
