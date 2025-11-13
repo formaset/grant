@@ -41,10 +41,19 @@ const selectors = {
 
 const outsideClickTargets = new Set();
 
+function setSelectorState(selectorEl, open) {
+  if (!selectorEl) return;
+  selectorEl.classList.toggle('open', Boolean(open));
+  const control = selectorEl.closest('.control');
+  if (control) {
+    control.classList.toggle('control-elevated', Boolean(open));
+  }
+}
+
 document.addEventListener('click', (event) => {
   outsideClickTargets.forEach((selectorEl) => {
     if (!selectorEl.contains(event.target)) {
-      selectorEl.classList.remove('open');
+      setSelectorState(selectorEl, false);
     }
   });
 });
@@ -224,11 +233,18 @@ async function loadData() {
 }
 
 function toggleSelector(selectorEl) {
-  selectorEl.classList.toggle('open');
+  if (!selectorEl) return;
+  const willOpen = !selectorEl.classList.contains('open');
+  [selectors.indicator, selectors.regions, selectors.activities].forEach((other) => {
+    if (other !== selectorEl) {
+      setSelectorState(other, false);
+    }
+  });
+  setSelectorState(selectorEl, willOpen);
 }
 
 function closeSelector(selectorEl) {
-  selectorEl.classList.remove('open');
+  setSelectorState(selectorEl, false);
 }
 
 function formatRegionDisplay(selected) {
@@ -451,7 +467,14 @@ function aggregateForMap() {
 
   const grouped = new Map();
   filtered.forEach((record) => {
-    const entry = grouped.get(record.regionCode) || { sum: 0, count: 0, mapKey: record.mapKey, regionName: record.regionName, code: record.regionCode };
+    const entry =
+      grouped.get(record.regionCode) || {
+        sum: 0,
+        count: 0,
+        mapKey: record.mapKey,
+        regionName: record.regionName,
+        code: record.regionCode,
+      };
     entry.sum += record.value;
     entry.count += 1;
     entry.mapKey = record.mapKey;
@@ -459,18 +482,20 @@ function aggregateForMap() {
     grouped.set(record.regionCode, entry);
   });
 
-  const data = [];
-  grouped.forEach((entry) => {
-    const value = entry.count ? entry.sum / entry.count : null;
-    if (value != null) {
-      data.push({
-        'hc-key': entry.mapKey,
+  const data = datasets.regions
+    .filter((region) => region.mapKey)
+    .map((region) => {
+      const entry = grouped.get(region.code);
+      const value = entry && entry.count ? entry.sum / entry.count : null;
+      return {
+        'hc-key': region.mapKey,
         value,
-        code: entry.code,
-        regionName: entry.regionName,
-      });
-    }
-  });
+        code: region.code,
+        regionName: region.featureName || region.name,
+        name: region.featureName || region.name,
+        labelCode: String(region.code).padStart(2, '0'),
+      };
+    });
 
   return data;
 }
@@ -584,8 +609,16 @@ function renderMap() {
         useHTML: true,
         formatter() {
           const { point } = this;
-          const value = Highcharts.numberFormat(point.value, 2, '.', ' ');
-          return `<span style="font-weight:600;color:#2b3a67">${point.name}</span><br/><span style="color:#6b78a5">${value} ${unitText}</span>`;
+          const code = Number.isFinite(point?.options?.code)
+            ? String(point.options.code).padStart(2, '0')
+            : '';
+          const regionTitle = point?.name || point?.options?.regionName || '';
+          const unitSuffix = state.unit ? ` ${state.unit}` : '';
+          const formattedValue = Number.isFinite(point.value)
+            ? `${Highcharts.numberFormat(point.value, 2, '.', ' ')}${unitSuffix}`
+            : 'Нет данных';
+          const title = [code, regionTitle].filter(Boolean).join(' · ');
+          return `<span style="font-weight:600;color:#2b3a67">${title}</span><br/><span style="color:#6b78a5">${formattedValue}</span>`;
         },
       },
       series: [
@@ -594,11 +627,29 @@ function renderMap() {
           data: mapData,
           joinBy: 'hc-key',
           name: state.indicator,
+          nullColor: 'rgba(222, 229, 255, 0.7)',
           states: {
             hover: { color: '#6d88ff' },
             select: { color: '#1f5cff' },
           },
           allowPointSelect: true,
+          dataLabels: {
+            enabled: true,
+            formatter() {
+              const code = Number.isFinite(this.point?.options?.code) ? this.point.options.code : null;
+              if (!Number.isFinite(code)) return '';
+              return String(code).padStart(2, '0');
+            },
+            style: {
+              color: '#1d2c63',
+              fontWeight: 600,
+              fontSize: '11px',
+              textOutline: 'none',
+            },
+            allowOverlap: true,
+            crop: false,
+            overflow: 'none',
+          },
           point: {
             events: {
               click(e) {
@@ -625,7 +676,11 @@ function renderMap() {
   }
 
   mapChartInstance.series[0].points.forEach((point) => {
-    const code = Number(point.options.code);
+    const code = Number(point.options?.code);
+    if (!Number.isFinite(code)) {
+      point.select(false, true);
+      return;
+    }
     if (state.selectedRegions.has(code)) {
       point.select(true, true);
     } else {

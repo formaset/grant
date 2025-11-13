@@ -40,7 +40,7 @@ body {
   flex-direction: column;
   gap: 32px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .sidebar::before {
@@ -105,6 +105,11 @@ body {
   flex-direction: column;
   gap: 14px;
   overflow: visible;
+  z-index: auto;
+}
+
+.control.control-elevated {
+  z-index: 140;
 }
 
 .control-label {
@@ -143,7 +148,7 @@ body {
 }
 
 .selector.open {
-  z-index: 30;
+  z-index: 220;
 }
 
 .selector-display {
