@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Atlas FutureSight</title>
+  <link rel="preconnect" href="https://code.highcharts.com" />
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://code.highcharts.com/highcharts.js" defer></script>
+  <script src="https://code.highcharts.com/maps/highmaps.js" defer></script>
+  <script src="https://code.highcharts.com/modules/data.js" defer></script>
+  <script src="https://code.highcharts.com/modules/accessibility.js" defer></script>
+  <script type="module" src="./app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar__branding">
+        <div class="badge">Актуальные данные</div>
+        <h1>Atlas FutureSight</h1>
+        <p class="subtitle">Интерактивный мониторинг социально-экономических показателей регионов России.</p>
+      </div>
+      <div class="control-group">
+        <label class="control-label" for="indicator-select">Показатель</label>
+        <div id="indicator-select" class="custom-select" data-mode="single"></div>
+      </div>
+      <div class="control-group">
+        <div class="control-header">
+          <label class="control-label">Регионы</label>
+          <span class="control-hint">Выберите один или несколько субъектов</span>
+        </div>
+        <div id="region-select" class="custom-select" data-mode="multiple"></div>
+      </div>
+      <div class="control-group">
+        <div class="control-header">
+          <label class="control-label">Виды деятельности</label>
+          <span class="control-hint">Совмещайте с выбором регионов</span>
+        </div>
+        <div id="activity-select" class="custom-select" data-mode="multiple"></div>
+      </div>
+      <div class="control-group">
+        <div class="control-header">
+          <label class="control-label">Период</label>
+          <span class="control-hint" id="period-label"></span>
+        </div>
+        <div class="dual-slider">
+          <input type="range" id="period-start" />
+          <input type="range" id="period-end" />
+          <div class="slider-track"></div>
+        </div>
+        <div class="slider-values">
+          <span id="period-start-value"></span>
+          <span id="period-end-value"></span>
+        </div>
+      </div>
+    </aside>
+    <main class="main-area">
+      <section class="map-card">
+        <div class="map-header">
+          <div>
+            <h2>Геоаналитика по показателю</h2>
+            <p id="map-subtitle">Выберите параметры слева, чтобы обновить карту.</p>
+          </div>
+          <div class="legend" id="region-legend"></div>
+        </div>
+        <div id="map-container"></div>
+      </section>
+      <section class="chart-card">
+        <div class="chart-header">
+          <div>
+            <h2>Тренды</h2>
+            <p id="chart-subtitle">Динамика значений за выбранный период.</p>
+          </div>
+          <div id="chart-indicator-meta"></div>
+        </div>
+        <div id="chart-container"></div>
+      </section>
+    </main>
+  </div>
+  <template id="legend-item-template">
+    <button class="legend-item" type="button"></button>
+  </template>
+</body>
+</html>
