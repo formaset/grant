@@ -19,6 +19,244 @@ const NAME_ALIASES = {
 const numberFormatter = new Intl.NumberFormat('ru-RU', {
   maximumFractionDigits: 1
 });
+const ALL_ACTIVITY = 'Все виды деятельности';
+
+function createMultiSelect(
+  container,
+  { options = [], selected = [], placeholder = '', buttonId = '', onChange } = {}
+) {
+  const state = {
+    options,
+    values: new Set(selected)
+  };
+  const labelByValue = new Map();
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'multi-select-wrapper';
+
+  const display = document.createElement('button');
+  display.type = 'button';
+  display.className = 'multi-select-display';
+  if (buttonId) {
+    display.id = buttonId;
+  }
+  display.setAttribute('aria-haspopup', 'listbox');
+  display.setAttribute('aria-expanded', 'false');
+
+  const displayText = document.createElement('span');
+  display.appendChild(displayText);
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'multi-select-dropdown';
+
+  const actions = document.createElement('div');
+  actions.className = 'multi-select-actions';
+
+  const selectAllBtn = document.createElement('button');
+  selectAllBtn.type = 'button';
+  selectAllBtn.className = 'multi-select-action';
+  selectAllBtn.dataset.action = 'select-all';
+  selectAllBtn.textContent = 'Выбрать все';
+
+  const clearBtn = document.createElement('button');
+  clearBtn.type = 'button';
+  clearBtn.className = 'multi-select-action';
+  clearBtn.dataset.action = 'clear';
+  clearBtn.textContent = 'Очистить';
+
+  actions.append(selectAllBtn, clearBtn);
+
+  const optionsContainer = document.createElement('div');
+  optionsContainer.className = 'multi-select-options';
+
+  dropdown.append(actions, optionsContainer);
+  wrapper.append(display, dropdown);
+  container.innerHTML = '';
+  container.appendChild(wrapper);
+
+  let optionElements = new Map();
+
+  const getPlaceholder = () => placeholder || container.dataset.placeholder || 'Выберите значение';
+
+  function refreshDisplay() {
+    const count = state.values.size;
+    let text = getPlaceholder();
+    if (count === 0) {
+      text = 'Не выбрано';
+    } else if (count === 1) {
+      const value = Array.from(state.values)[0];
+      text = labelByValue.get(value) || text;
+    } else {
+      text = `Выбрано: ${count}`;
+    }
+    displayText.textContent = text;
+    display.setAttribute('aria-expanded', wrapper.classList.contains('open') ? 'true' : 'false');
+  }
+
+  function applySelection(newValues, { trigger = true, source = 'programmatic', detail = {} } = {}) {
+    state.values = new Set(newValues);
+    optionElements.forEach(({ element, input }, value) => {
+      const isSelected = state.values.has(value);
+      element.classList.toggle('selected', isSelected);
+      input.checked = isSelected;
+    });
+    refreshDisplay();
+    if (trigger && typeof onChange === 'function') {
+      onChange(new Set(state.values), { source, ...detail });
+    }
+  }
+
+  function renderOptions() {
+    optionsContainer.innerHTML = '';
+    optionElements = new Map();
+    labelByValue.clear();
+
+    state.options.forEach((option) => {
+      labelByValue.set(option.value, option.label);
+
+      const optionEl = document.createElement('label');
+      optionEl.className = 'multi-select-option';
+      optionEl.dataset.value = option.value;
+      if (option.disabled) {
+        optionEl.classList.add('disabled');
+      }
+
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.value = option.value;
+      input.disabled = !!option.disabled;
+
+      const checkbox = document.createElement('span');
+      checkbox.className = 'option-checkbox';
+      checkbox.innerHTML =
+        '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 8l2.5 2.5L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+      const labelSpan = document.createElement('span');
+      labelSpan.className = 'option-label';
+      labelSpan.textContent = option.label;
+
+      optionEl.append(input, checkbox, labelSpan);
+      optionElements.set(option.value, { element: optionEl, input });
+
+      optionEl.addEventListener('click', (event) => {
+        event.preventDefault();
+        if (option.disabled) {
+          return;
+        }
+        const nextValues = new Set(state.values);
+        if (nextValues.has(option.value)) {
+          nextValues.delete(option.value);
+        } else {
+          nextValues.add(option.value);
+        }
+        applySelection(nextValues, {
+          source: 'toggle',
+          detail: { value: option.value, checked: nextValues.has(option.value) }
+        });
+      });
+
+      optionsContainer.appendChild(optionEl);
+    });
+
+    applySelection(state.values, { trigger: false });
+  }
+
+  selectAllBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    const values = state.options.filter((option) => !option.disabled).map((option) => option.value);
+    applySelection(values, { source: 'select-all' });
+  });
+
+  clearBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    applySelection([], { source: 'clear' });
+  });
+
+  display.addEventListener('click', (event) => {
+    event.preventDefault();
+    wrapper.classList.toggle('open');
+    refreshDisplay();
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!wrapper.contains(event.target)) {
+      if (wrapper.classList.contains('open')) {
+        wrapper.classList.remove('open');
+        refreshDisplay();
+      }
+    }
+  });
+
+  renderOptions();
+
+  return {
+    setOptions(newOptions) {
+      state.options = newOptions;
+      renderOptions();
+    },
+    setValue(values, { silent = true } = {}) {
+      applySelection(values, { trigger: !silent });
+    },
+    getValue() {
+      return new Set(state.values);
+    },
+    close() {
+      wrapper.classList.remove('open');
+      refreshDisplay();
+    }
+  };
+}
+
+function filterRegionActivities(items, selectedActivities) {
+  if (!items.length) {
+    return { items: [], usedFallback: false };
+  }
+
+  if (!selectedActivities || selectedActivities.size === 0) {
+    const aggregated = items.filter((item) => item.activity === ALL_ACTIVITY);
+    if (aggregated.length) {
+      return { items: aggregated, usedFallback: true };
+    }
+    return { items, usedFallback: false };
+  }
+
+  if (selectedActivities.has(ALL_ACTIVITY)) {
+    const aggregated = items.filter((item) => item.activity === ALL_ACTIVITY);
+    return { items: aggregated, usedFallback: false };
+  }
+
+  const filtered = items.filter((item) => selectedActivities.has(item.activity));
+  return { items: filtered, usedFallback: false };
+}
+
+function aggregateYearValues(items, startYear, endYear) {
+  const yearMap = new Map();
+  let unit = null;
+
+  items.forEach((item) => {
+    if (typeof startYear === 'number' && item.year < startYear) {
+      return;
+    }
+    if (typeof endYear === 'number' && item.year > endYear) {
+      return;
+    }
+    if (!unit && item.unit) {
+      unit = item.unit;
+    }
+    const current = yearMap.get(item.year) || 0;
+    yearMap.set(item.year, current + item.value);
+  });
+
+  return { yearMap, unit };
+}
+
+function normalizeActivitySelection(values) {
+  const next = new Set(values);
+  if (next.has(ALL_ACTIVITY) && next.size > 1) {
+    next.delete(ALL_ACTIVITY);
+  }
+  return next;
+}
 
 
 function normalizeName(name) {
@@ -142,7 +380,7 @@ function prepareLegend(mapLegendElement, regionsMeta) {
   mapLegendElement.appendChild(fragment);
 }
 
-function buildRegionSeries(data, indicator, startYear, endYear, regionsMeta) {
+function buildRegionSeries(data, indicator, startYear, endYear, regionsMeta, selectedActivities) {
   const filtered = data.filter(
     (item) =>
       item.indicator === indicator &&
@@ -160,60 +398,141 @@ function buildRegionSeries(data, indicator, startYear, endYear, regionsMeta) {
 
   const series = [];
 
-  grouped.forEach((items, regionCode) => {
-    const regionMeta = regionsMeta.get(regionCode);
+  regionsMeta.forEach((regionMeta, regionCode) => {
     if (!regionMeta || !regionMeta.hcKey) {
       return;
     }
-    const focusSet = items.filter((entry) => entry.activity === 'Все виды деятельности');
-    const baseItems = focusSet.length ? focusSet : items;
-    const byYear = new Map();
-    baseItems.forEach((entry) => {
-      const yearBucket = byYear.get(entry.year) || 0;
-      byYear.set(entry.year, yearBucket + entry.value);
-    });
-    if (!byYear.size) {
-      return;
+
+    const items = grouped.get(regionCode) || [];
+    const { items: relevantItems } = filterRegionActivities(items, selectedActivities);
+    const { yearMap } = aggregateYearValues(relevantItems, startYear, endYear);
+
+    let mean = null;
+    if (yearMap.size) {
+      const total = Array.from(yearMap.values()).reduce((acc, val) => acc + val, 0);
+      mean = total / yearMap.size;
     }
-    const total = Array.from(byYear.values()).reduce((acc, val) => acc + val, 0);
-    const mean = total / byYear.size;
+
     series.push({
       'hc-key': regionMeta.hcKey,
       regionCode,
       regionName: regionMeta.name,
       value: mean,
-      postalCode: regionMeta.postalCode
+      postalCode: regionMeta.postalCode,
+      displayCode: regionMeta.code.padStart(2, '0')
     });
   });
 
   return series;
 }
 
-function buildRegionSummary(data, indicator, regionCode, startYear, endYear) {
+function buildRegionSummary(data, indicator, selectedRegions, selectedActivities, startYear, endYear) {
+  if (!selectedRegions.size || !selectedActivities.size) {
+    return null;
+  }
+
   const filtered = data.filter(
     (item) =>
       item.indicator === indicator &&
-      item.regionCode === regionCode &&
+      selectedRegions.has(item.regionCode) &&
       item.year >= startYear &&
-      item.year <= endYear &&
-      item.activity === 'Все виды деятельности'
+      item.year <= endYear
   );
 
   if (!filtered.length) {
     return null;
   }
 
-  const values = filtered.map((item) => item.value);
+  const grouped = new Map();
+  filtered.forEach((item) => {
+    if (!grouped.has(item.regionCode)) {
+      grouped.set(item.regionCode, []);
+    }
+    grouped.get(item.regionCode).push(item);
+  });
+
+  const combined = new Map();
+  let unit = null;
+
+  grouped.forEach((items) => {
+    const { items: relevantItems } = filterRegionActivities(items, selectedActivities);
+    const { yearMap, unit: localUnit } = aggregateYearValues(relevantItems, startYear, endYear);
+    if (!unit && localUnit) {
+      unit = localUnit;
+    }
+    yearMap.forEach((value, year) => {
+      const current = combined.get(year) || 0;
+      combined.set(year, current + value);
+    });
+  });
+
+  if (!combined.size) {
+    return null;
+  }
+
+  const values = Array.from(combined.values());
   return {
     average: values.reduce((acc, val) => acc + val, 0) / values.length,
     max: Math.max(...values),
     min: Math.min(...values),
-    unit: filtered[0].unit
+    unit
   };
 }
 
-function buildTrendSeries(data, indicator, regionCode, startYear, endYear, yearsSlice) {
-  const filtered = data.filter(
+function buildTrendSeries(
+  data,
+  indicator,
+  selectedRegions,
+  selectedActivities,
+  startYear,
+  endYear,
+  yearsSlice,
+  regionsMeta
+) {
+  if (!selectedRegions.size || !selectedActivities.size) {
+    return [];
+  }
+
+  const regionList = Array.from(selectedRegions);
+  const activityList = Array.from(selectedActivities);
+  const multiRegion = regionList.length > 1;
+  const multiActivity = activityList.length > 1;
+
+  const series = [];
+
+  if (multiRegion) {
+    const activitySet = new Set(activityList);
+    const sortedRegions = regionList.sort((a, b) => {
+      const nameA = regionsMeta.get(a)?.name || a;
+      const nameB = regionsMeta.get(b)?.name || b;
+      return nameA.localeCompare(nameB, 'ru');
+    });
+
+    sortedRegions.forEach((regionCode, index) => {
+      const regionItems = data.filter(
+        (item) =>
+          item.indicator === indicator &&
+          item.regionCode === regionCode &&
+          item.year >= startYear &&
+          item.year <= endYear
+      );
+      const { items: relevantItems } = filterRegionActivities(regionItems, activitySet);
+      const { yearMap } = aggregateYearValues(relevantItems, startYear, endYear);
+      const dataPoints = yearsSlice.map((year) => [year, yearMap.has(year) ? yearMap.get(year) : null]);
+      const regionName = regionsMeta.get(regionCode)?.name || regionCode;
+      series.push({
+        name: regionName,
+        data: dataPoints,
+        lineWidth: index === 0 ? 3 : 2,
+        marker: { enabled: false }
+      });
+    });
+
+    return series;
+  }
+
+  const regionCode = regionList[0];
+  const regionItems = data.filter(
     (item) =>
       item.indicator === indicator &&
       item.regionCode === regionCode &&
@@ -221,47 +540,60 @@ function buildTrendSeries(data, indicator, regionCode, startYear, endYear, years
       item.year <= endYear
   );
 
-  const activities = new Map();
-  filtered.forEach((item) => {
-    if (!activities.has(item.activity)) {
-      activities.set(item.activity, new Map());
-    }
-    const yearMap = activities.get(item.activity);
-    const current = yearMap.get(item.year) || 0;
-    yearMap.set(item.year, current + item.value);
-  });
-
-  const series = [];
-
-  activities.forEach((yearMap, activity) => {
-    const dataPoints = yearsSlice.map((year) => {
-      const value = yearMap.has(year) ? yearMap.get(year) : null;
-      return [year, value];
-    });
-
-    series.push({
-      name: activity,
-      data: dataPoints,
-      dashStyle: activity === 'Все виды деятельности' ? 'Solid' : 'ShortDash',
-      lineWidth: activity === 'Все виды деятельности' ? 3 : 2,
-      marker: {
-        enabled: false
+  if (!regionItems.length) {
+    return [
+      {
+        name: regionsMeta.get(regionCode)?.name || regionCode,
+        data: yearsSlice.map((year) => [year, null]),
+        marker: { enabled: false }
       }
+    ];
+  }
+
+  if (multiActivity) {
+    const sortedActivities = activityList
+      .slice()
+      .sort((a, b) => {
+        if (a === ALL_ACTIVITY) return -1;
+        if (b === ALL_ACTIVITY) return 1;
+        return a.localeCompare(b, 'ru');
+      });
+
+    sortedActivities.forEach((activity) => {
+      const { items: relevantItems } = filterRegionActivities(regionItems, new Set([activity]));
+      const { yearMap } = aggregateYearValues(relevantItems, startYear, endYear);
+      const dataPoints = yearsSlice.map((year) => [year, yearMap.has(year) ? yearMap.get(year) : null]);
+      series.push({
+        name: activity,
+        data: dataPoints,
+        dashStyle: activity === ALL_ACTIVITY ? 'Solid' : 'ShortDash',
+        lineWidth: activity === ALL_ACTIVITY ? 3 : 2,
+        marker: { enabled: false }
+      });
     });
-  });
 
-  series.sort((a, b) => {
-    if (a.name === 'Все виды деятельности') return -1;
-    if (b.name === 'Все виды деятельности') return 1;
-    return a.name.localeCompare(b.name, 'ru');
-  });
+    return series;
+  }
 
-  return series;
+  const activityName = activityList[0];
+  const { items: relevantItems } = filterRegionActivities(regionItems, new Set([activityName]));
+  const { yearMap } = aggregateYearValues(relevantItems, startYear, endYear);
+  const dataPoints = yearsSlice.map((year) => [year, yearMap.has(year) ? yearMap.get(year) : null]);
+
+  return [
+    {
+      name: activityName,
+      data: dataPoints,
+      lineWidth: 3,
+      marker: { enabled: false }
+    }
+  ];
 }
 
-function updateLegendHighlight(container, regionCode) {
+function updateLegendHighlight(container, selectedRegions) {
+  const selectedSet = selectedRegions instanceof Set ? selectedRegions : new Set([selectedRegions]);
   container.querySelectorAll('.legend-item').forEach((item) => {
-    item.classList.toggle('active', item.dataset.code === regionCode);
+    item.classList.toggle('active', selectedSet.has(item.dataset.code));
   });
 }
 
@@ -279,7 +611,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   const indicatorSelect = document.getElementById('indicatorSelect');
-  const regionSelect = document.getElementById('regionSelect');
+  const regionSelectContainer = document.getElementById('regionSelect');
+  const activitySelectContainer = document.getElementById('activitySelect');
   const mapLegendElement = document.getElementById('mapLegend');
   const yearSlider = document.getElementById('yearSlider');
   const startYearLabel = document.getElementById('startYear');
@@ -291,9 +624,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const unitValueEl = document.getElementById('unitValue');
 
   try {
-    const [indicatorRows, regionRows] = await Promise.all([
+    const [indicatorRows, regionRows, activityRows] = await Promise.all([
       parseCsv('indicators.csv'),
-      parseCsv('regions_reference.csv')
+      parseCsv('regions_reference.csv'),
+      parseCsv('activity_reference.csv')
     ]);
 
     const indicatorData = extractIndicatorData(indicatorRows);
@@ -301,9 +635,35 @@ document.addEventListener('DOMContentLoaded', async () => {
       throw new Error('Не удалось подготовить данные показателей.');
     }
 
+    const indicatorUnits = new Map();
+    indicatorData.forEach((item) => {
+      if (!indicatorUnits.has(item.indicator) && item.unit) {
+        indicatorUnits.set(item.indicator, item.unit);
+      }
+    });
+
     const years = getUniqueSortedYears(indicatorData);
     const indicators = getUniqueIndicators(indicatorData);
     const regionsMeta = createRegionMetadata(regionRows, RUSSIA_MAP);
+
+    const activitiesFromData = new Set(indicatorData.map((item) => item.activity));
+    const activityOrder = [];
+    if (activitiesFromData.has(ALL_ACTIVITY)) {
+      activityOrder.push(ALL_ACTIVITY);
+      activitiesFromData.delete(ALL_ACTIVITY);
+    }
+    activityRows
+      .map((row) => row['Наименование'])
+      .filter(Boolean)
+      .forEach((name) => {
+        if (activitiesFromData.has(name)) {
+          activityOrder.push(name);
+          activitiesFromData.delete(name);
+        }
+      });
+    Array.from(activitiesFromData)
+      .sort((a, b) => a.localeCompare(b, 'ru'))
+      .forEach((name) => activityOrder.push(name));
 
     prepareLegend(mapLegendElement, regionsMeta);
 
@@ -316,21 +676,90 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const regionOptions = Array.from(regionsMeta.values())
       .filter((region) => !!region.hcKey)
-      .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+      .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+      .map((region) => ({
+        value: region.code,
+        label: `${region.code.padStart(2, '0')} — ${region.name}`
+      }));
 
-    regionOptions.forEach((region) => {
-      const option = document.createElement('option');
-      option.value = region.code;
-      option.textContent = region.name;
-      regionSelect.appendChild(option);
-    });
+    const activityOptions = activityOrder.map((activity) => ({
+      value: activity,
+      label: activity
+    }));
 
     const initialIndicator = indicators[0];
-    const initialRegion = regionOptions.length ? regionOptions[0].code : null;
+    const initialRegion = regionOptions.length ? regionOptions[0].value : null;
+    const initialActivity = activityOptions.length ? activityOptions[0].value : null;
+
     indicatorSelect.value = initialIndicator;
-    if (initialRegion) {
-      regionSelect.value = initialRegion;
+
+    const selectionState = {
+      indicator: initialIndicator,
+      regions: new Set(initialRegion ? [initialRegion] : []),
+      activities: new Set(initialActivity ? [initialActivity] : [])
+    };
+
+    let regionMulti;
+    let activityMulti;
+
+    function applySelectionConstraints(changed) {
+      const multiRegions = selectionState.regions.size > 1;
+      const multiActivities = selectionState.activities.size > 1;
+
+      if (multiRegions && multiActivities) {
+        if (changed === 'regions') {
+          const firstActivity = Array.from(selectionState.activities)[0];
+          selectionState.activities = firstActivity ? new Set([firstActivity]) : new Set();
+        } else if (changed === 'activities') {
+          const firstRegion = Array.from(selectionState.regions)[0];
+          selectionState.regions = firstRegion ? new Set([firstRegion]) : new Set();
+        }
+      }
     }
+
+    function setRegions(values, changed = 'regions') {
+      selectionState.regions = new Set(values);
+      applySelectionConstraints(changed);
+      regionMulti.setValue(Array.from(selectionState.regions), { silent: true });
+      activityMulti.setValue(Array.from(selectionState.activities), { silent: true });
+      updateLegendHighlight(mapLegendElement, selectionState.regions);
+      refreshVisuals();
+    }
+
+    function setActivities(values, changed = 'activities') {
+      selectionState.activities = normalizeActivitySelection(values);
+      applySelectionConstraints(changed);
+      activityMulti.setValue(Array.from(selectionState.activities), { silent: true });
+      regionMulti.setValue(Array.from(selectionState.regions), { silent: true });
+      updateLegendHighlight(mapLegendElement, selectionState.regions);
+      refreshVisuals();
+    }
+
+    regionMulti = createMultiSelect(regionSelectContainer, {
+      options: regionOptions,
+      selected: Array.from(selectionState.regions),
+      placeholder: regionSelectContainer.dataset.placeholder,
+      buttonId: 'regionSelectButton',
+      onChange(values) {
+        setRegions(values, 'regions');
+      }
+    });
+
+    activityMulti = createMultiSelect(activitySelectContainer, {
+      options: activityOptions,
+      selected: Array.from(selectionState.activities),
+      placeholder: activitySelectContainer.dataset.placeholder,
+      buttonId: 'activitySelectButton',
+      onChange(values) {
+        const normalized = normalizeActivitySelection(values);
+        if (normalized.size !== values.size) {
+          activityMulti.setValue(Array.from(normalized), { silent: true });
+        }
+        setActivities(normalized, 'activities');
+      }
+    });
+
+    updateLegendHighlight(mapLegendElement, selectionState.regions);
 
     noUiSlider.create(yearSlider, {
       start: [years[0], years[years.length - 1]],
@@ -343,6 +772,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
+    const indicatorYearCache = new Map();
+
     const getYearRange = () => {
       const [start, end] = yearSlider.noUiSlider.get().map((value) => Math.round(Number(value)));
       return [Math.min(start, end), Math.max(start, end)];
@@ -354,8 +785,47 @@ document.addEventListener('DOMContentLoaded', async () => {
       endYearLabel.textContent = `${end} г.`;
     };
 
+    const getIndicatorYearsCached = (indicatorName) => {
+      if (!indicatorYearCache.has(indicatorName)) {
+        const indicatorYears = indicatorData
+          .filter((item) => item.indicator === indicatorName)
+          .map((item) => item.year);
+        indicatorYearCache.set(
+          indicatorName,
+          Array.from(new Set(indicatorYears)).sort((a, b) => a - b)
+        );
+      }
+      return indicatorYearCache.get(indicatorName);
+    };
+
+    function updateSliderRangeForIndicator(indicatorName) {
+      const indicatorYears = getIndicatorYearsCached(indicatorName);
+      if (!indicatorYears.length) {
+        return;
+      }
+      const minYear = indicatorYears[0];
+      const maxYear = indicatorYears[indicatorYears.length - 1];
+      const [currentStart, currentEnd] = getYearRange();
+      let nextStart = Math.min(Math.max(currentStart, minYear), maxYear);
+      let nextEnd = Math.min(Math.max(currentEnd, minYear), maxYear);
+      if (nextStart > nextEnd) {
+        nextStart = minYear;
+        nextEnd = maxYear;
+      }
+      yearSlider.noUiSlider.updateOptions(
+        {
+          range: { min: minYear, max: maxYear }
+        },
+        false
+      );
+      yearSlider.noUiSlider.set([nextStart, nextEnd]);
+      updateYearLabels();
+    }
+
     updateYearLabels();
     yearSlider.noUiSlider.on('update', updateYearLabels);
+
+    updateSliderRangeForIndicator(initialIndicator);
 
     let mapChart = Highcharts.mapChart('mapContainer', {
       chart: {
@@ -380,7 +850,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         formatter: function () {
           const value = typeof this.point.value === 'number' ? numberFormatter.format(this.point.value) : '—';
-          return `<strong>${this.point.regionName}</strong><br/>Среднее значение: <b>${value}</b>`;
+          const activityInfo = this.point.activityLabel
+            ? `<br/>Виды: <b>${this.point.activityLabel}</b>`
+            : '';
+          return `<strong>${this.point.regionName}</strong><br/>Среднее значение: <b>${value}</b>${activityInfo}`;
         }
       },
       colorAxis: {
@@ -415,17 +888,30 @@ document.addEventListener('DOMContentLoaded', async () => {
           allowPointSelect: true,
           cursor: 'pointer',
           dataLabels: {
-            enabled: false
+            enabled: true,
+            format: '{point.displayCode}',
+            style: {
+              fontWeight: '700',
+              fontSize: '10px',
+              textOutline: 'none',
+              color: '#202c54'
+            },
+            allowOverlap: true
           },
           point: {
             events: {
               click: function () {
                 const code = this.regionCode;
-                if (code) {
-                  regionSelect.value = code;
-                  updateLegendHighlight(mapLegendElement, code);
-                  refreshVisuals();
+                if (!code) {
+                  return;
                 }
+                const next = new Set(selectionState.regions);
+                if (next.has(code)) {
+                  next.delete(code);
+                } else {
+                  next.add(code);
+                }
+                setRegions(next, 'regions');
               }
             }
           }
@@ -498,19 +984,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     function refreshVisuals() {
-      const indicator = indicatorSelect.value;
-      const regionCode = regionSelect.value;
+      const indicator = selectionState.indicator;
+      const selectedRegions = selectionState.regions;
+      const selectedActivities = selectionState.activities;
       const [startYear, endYear] = getYearRange();
+      const yearsSlice = years.filter((year) => year >= startYear && year <= endYear);
+      const unit = indicatorUnits.get(indicator) || '';
 
-      const mapSeries = buildRegionSeries(indicatorData, indicator, startYear, endYear, regionsMeta);
-      const unit = indicatorData.find((item) => item.indicator === indicator)?.unit || '';
+      const mapSeries = buildRegionSeries(
+        indicatorData,
+        indicator,
+        startYear,
+        endYear,
+        regionsMeta,
+        selectedActivities
+      );
+
+      const activityLabel =
+        !selectedActivities.size
+          ? 'Нет выбранных видов'
+          : selectedActivities.size === 1
+          ? Array.from(selectedActivities)[0]
+          : `${selectedActivities.size} видов деятельности`;
+
       const mappedData = mapSeries.map((item) => ({
         'hc-key': item['hc-key'],
         value: item.value,
         regionCode: item.regionCode,
-        regionName: item.regionName
+        regionName: item.regionName,
+        postalCode: item.postalCode,
+        displayCode: item.displayCode,
+        activityLabel
       }));
-      const values = mapSeries
+
+      const values = mappedData
         .map((item) => item.value)
         .filter((val) => typeof val === 'number' && !Number.isNaN(val));
       const maxValue = values.length ? Math.max(...values) : 0;
@@ -521,8 +1028,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       mapChart.redraw();
 
-      if (!regionCode) {
-        chartDescription.textContent = indicator;
+      mapChart.series[0].points.forEach((point) => {
+        const shouldSelect = selectedRegions.has(point.regionCode);
+        if (point.selected !== shouldSelect) {
+          point.select(shouldSelect, true);
+        }
+      });
+      if (mapChart.tooltip && mapChart.tooltip.hide) {
+        mapChart.tooltip.hide();
+      }
+
+      updateLegendHighlight(mapLegendElement, selectedRegions);
+
+      if (!selectedRegions.size || !selectedActivities.size) {
+        chartDescription.textContent = 'Выберите регион и вид деятельности, чтобы увидеть динамику.';
         trendChart.update({ series: [] }, true, true, false);
         avgValueEl.textContent = '—';
         maxValueEl.textContent = '—';
@@ -531,42 +1050,55 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
-      updateLegendHighlight(mapLegendElement, regionCode);
-      const regionMeta = regionsMeta.get(regionCode);
-      const yearsSlice = years.filter((year) => year >= startYear && year <= endYear);
+      const trendSeries = buildTrendSeries(
+        indicatorData,
+        indicator,
+        selectedRegions,
+        selectedActivities,
+        startYear,
+        endYear,
+        yearsSlice,
+        regionsMeta
+      );
 
-      chartDescription.textContent = regionMeta ? `${indicator} — ${regionMeta.name}` : indicator;
-
-      const trendSeries = regionMeta
-        ? buildTrendSeries(indicatorData, indicator, regionCode, startYear, endYear, yearsSlice)
-        : [];
-
-      trendChart.update({
-        yAxis: {
-          title: {
-            text: unit ? `Значение (${unit})` : 'Значение'
-          }
+      trendChart.update(
+        {
+          yAxis: {
+            title: {
+              text: unit ? `Значение (${unit})` : 'Значение'
+            }
+          },
+          series: trendSeries.length
+            ? trendSeries
+            : [
+                {
+                  name: 'Нет данных',
+                  data: yearsSlice.map((year) => [year, null]),
+                  color: '#cfd5f7',
+                  dashStyle: 'ShortDot',
+                  enableMouseTracking: false
+                }
+              ]
         },
-        series: trendSeries.length
-          ? trendSeries
-          : [{
-              name: 'Нет данных',
-              data: yearsSlice.map((year) => [year, null]),
-              color: '#cfd5f7',
-              dashStyle: 'ShortDot',
-              enableMouseTracking: false
-            }]
-      }, true, true, false);
+        true,
+        true,
+        false
+      );
 
-      const summary = regionMeta
-        ? buildRegionSummary(indicatorData, indicator, regionCode, startYear, endYear)
-        : null;
+      const summary = buildRegionSummary(
+        indicatorData,
+        indicator,
+        selectedRegions,
+        selectedActivities,
+        startYear,
+        endYear
+      );
 
       if (summary) {
         avgValueEl.textContent = numberFormatter.format(summary.average);
         maxValueEl.textContent = numberFormatter.format(summary.max);
         minValueEl.textContent = numberFormatter.format(summary.min);
-        unitValueEl.textContent = summary.unit || '—';
+        unitValueEl.textContent = summary.unit || unit || '—';
       } else {
         avgValueEl.textContent = '—';
         maxValueEl.textContent = '—';
@@ -574,26 +1106,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         unitValueEl.textContent = unit || '—';
       }
 
-      if (regionMeta?.hcKey) {
-        const point = mapChart.series[0].data.find((item) => item.regionCode === regionCode);
-        mapChart.series[0].data.forEach((item) => {
-          if (item !== point && item.selected) {
-            item.select(false, false);
-          }
-        });
-        if (point) {
-          point.select(true, false);
-          mapChart.tooltip.refresh(point);
-        } else if (mapChart.tooltip && mapChart.tooltip.hide) {
-          mapChart.tooltip.hide();
-        }
+      const regionNames = Array.from(selectedRegions).map((code) => regionsMeta.get(code)?.name || code);
+      const activityNames = Array.from(selectedActivities);
+      if (selectedRegions.size > 1) {
+        const activityText = activityNames[0] || '—';
+        chartDescription.textContent = `${indicator} — ${activityText}. Сравнение ${selectedRegions.size} регионов.`;
+      } else if (selectedActivities.size > 1) {
+        const regionText = regionNames[0] || '—';
+        chartDescription.textContent = `${indicator} — ${regionText}. ${selectedActivities.size} видов деятельности.`;
+      } else {
+        chartDescription.textContent = `${indicator} — ${regionNames[0] || 'Регион не выбран'} / ${
+          activityNames[0] || 'Вид деятельности не выбран'
+        }`;
       }
     }
 
+    indicatorSelect.addEventListener('change', (event) => {
+      selectionState.indicator = event.target.value;
+      updateSliderRangeForIndicator(selectionState.indicator);
+      refreshVisuals();
+    });
 
-    indicatorSelect.addEventListener('change', refreshVisuals);
-    regionSelect.addEventListener('change', refreshVisuals);
-    yearSlider.noUiSlider.on('set', refreshVisuals);
+    yearSlider.noUiSlider.on('set', () => {
+      refreshVisuals();
+    });
 
     mapLegendElement.addEventListener('click', (event) => {
       const legendItem = event.target.closest('.legend-item');
@@ -602,8 +1138,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!regionsMeta.get(code)?.hcKey) {
         return;
       }
-      regionSelect.value = code;
-      refreshVisuals();
+      const next = new Set(selectionState.regions);
+      if (next.has(code)) {
+        next.delete(code);
+      } else {
+        next.add(code);
+      }
+      setRegions(next, 'regions');
     });
 
     refreshVisuals();
